@@ -47,8 +47,8 @@ function Intro({lastActive, systems}) {
                     div.innerHTML = Line(next.value);
                     text.appendChild(div.firstElementChild);
                 }
-            }, 1000);
-            // }, 1);
+            // }, 1000);
+            }, 1);
         }
 
         render() {

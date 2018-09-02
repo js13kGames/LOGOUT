@@ -10,7 +10,12 @@ const NEON_COLORS = ["28D7FE", "A9FFDC", "FED128"];
 const NEON_LIGHT_MOUNT = [0, 0, -20];
 const NEON_INTENSITY = 15;
 
-import map from './map.json';
+import map from './new-map.json';
+map.size = {
+  x: 64,
+  y: 64
+};
+
 const MAX_BUILDING_HEIGHT = 32;
 const MIN_BUILDING_HEIGHT = 8;
 
@@ -18,7 +23,7 @@ class Group extends Entity {
   constructor(options) {
     super(Object.assign({
       components: [
-          new Transform()
+        new Transform()
       ]
     }, options));
   }
@@ -41,145 +46,168 @@ function hex_to_rgb(hex) {
 }
 
 export default
-function create_game() {
-    const game = new Game({
-      width: window.innerWidth,
-      height: window.innerHeight,
-      far: 1000,
-      clear_color: CLEAR_COLOR,
-    });
+  function create_game() {
+  const game = new Game({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    far: 1000,
+    clear_color: CLEAR_COLOR,
+  });
 
-    game.canvas.addEventListener(
-      'click', () => game.canvas.requestPointerLock()
-    );
+  game.canvas.addEventListener(
+    'click', () => game.canvas.requestPointerLock()
+  );
 
-    game.camera.get_component(Transform).set({
-        position: [map.starting_point.x, 1.75, map.starting_point.y],
-    });
+  game.camera.get_component(Transform).set({
+    position: [map.size.x / 2, 1.75, map.size.y / 2],
+  });
 
-    game.camera.get_component(Move).set({
-        keyboard_controlled: true,
-        mouse_controlled: true,
-        move_speed: 5,
-    });
+  game.camera.get_component(Move).set({
+    keyboard_controlled: true,
+    mouse_controlled: true,
+    move_speed: 5,
+  });
 
-    // Remove the default light.
-    game.remove(game.light);
+  // Remove the default light.
+  game.remove(game.light);
 
-    const cube = new Box();
-    const cube_render = cube.get_component(Render);
+  const cube = new Box();
+  const cube_render = cube.get_component(Render);
 
-    let neon_material = new BasicMaterial({
-      requires: [
-        Render,
-        Transform
+  let neon_material = new BasicMaterial({
+    requires: [
+      Render,
+      Transform
+    ]
+  });
+
+  neon_material.add_fog({
+    color: hex_to_rgb(CLEAR_COLOR),
+    distance: new Float32Array([10, 100]),
+  });
+
+  let building_material = new PhongMaterial({
+    requires: [
+      Render,
+      Transform
+    ]
+  });
+
+  building_material.add_fog({
+    color: hex_to_rgb(CLEAR_COLOR),
+    distance: new Float32Array([0, 30]),
+  });
+
+  const wireframe = new WireframeMaterial({
+    requires: [
+      Render,
+      Transform
+    ]
+  });
+
+  const plane = new Box();
+  plane.get_component(Render).material = building_material;
+  plane.get_component(Render).color = BUILDING_COLOR;
+  plane.get_component(Transform).set({
+    position: [0, -0.5, 0],
+    scale: [map.size.x * 10, 1, map.size.y * 10],
+  });
+  game.add(plane);
+
+  function create_building(options) {
+    let { position, scale } = options;
+    let group = new Entity({
+      components: [
+        new Transform({ position })
       ]
     });
 
-    neon_material.add_fog({
-      color: hex_to_rgb(CLEAR_COLOR),
-      distance: new Float32Array([10, 100]),
+    let building = new Box();
+    building.get_component(Render).set({
+      material: building_material,
+      color: BUILDING_COLOR,
+    });
+    building.get_component(Transform).set({ scale });
+    group.add(building);
+
+    let { neon_position, neon_scale, neon_color } = options;
+    let neon = new Box();
+    neon.get_component(Render).set({
+      material: neon_material,
+      color: neon_color,
+    });
+    neon.get_component(Transform).set({
+      position: neon_position,
+      scale: neon_scale,
     });
 
-    let building_material = new PhongMaterial({
-      requires: [
-        Render,
-        Transform
+    let neon_light = new Entity({
+      components: [
+        new Transform({
+          position: NEON_LIGHT_MOUNT
+        }),
+        new Light({
+          color: neon_color,
+          intensity: NEON_INTENSITY,
+        }),
+        // new Render({
+        //     color: "fff",
+        //     material: wireframe,
+        //     indices: cube_render.indices,
+        //     vertices: cube_render.vertices
+        //})
       ]
     });
+    neon.add(neon_light);
+    group.add(neon);
 
-    building_material.add_fog({
-      color: hex_to_rgb(CLEAR_COLOR),
-      distance: new Float32Array([0, 30]),
-    });
+    game.add(group);
+  }
 
-    const wireframe = new WireframeMaterial({
-      requires: [
-        Render,
-        Transform
-      ]
-    });
+  // for (let building of map.buildings) {
+  //   let { x1, y1, x2, y2 } = building;
+  //   let xsize = Math.abs(x2 - x1);
+  //   let zsize = Math.abs(y2 - y1);
 
-    const plane = new Box();
-    plane.get_component(Render).material = building_material;
-    plane.get_component(Render).color = BUILDING_COLOR;
-    plane.get_component(Transform).set({
-        position: [0, -0.5, 0],
-        scale: [map.size.x * 10, 1, map.size.y * 10],
-    });
-    game.add(plane);
+  //   let center_x = x1 + (xsize / 2);
+  //   let center_z = y1 + (zsize / 2);
 
-    function create_building(options) {
-        let {position, scale} = options;
-        let group = new Entity({
-            components: [
-                new Transform({position})
-            ]
-        });
+  //   let height = random_integer(
+  //     MIN_BUILDING_HEIGHT, MAX_BUILDING_HEIGHT
+  //   );
 
-        let building = new Box();
-        building.get_component(Render).set({
-            material: building_material,
-            color: BUILDING_COLOR,
-        });
-        building.get_component(Transform).set({scale});
-        group.add(building);
+  //   create_building({
+  //     position: [center_x, height / 2, center_z],
+  //     scale: [xsize, height, zsize],
+  //     neon_position: [0, 1, - (zsize / 2) - 0.2],
+  //     neon_scale: [4, 2, 0.1],
+  //     neon_color: random_element_of(NEON_COLORS),
+  //   });
+  // }
 
-        let {neon_position, neon_scale, neon_color} = options;
-        let neon = new Box();
-        neon.get_component(Render).set({
-            material: neon_material,
-            color: neon_color,
-        });
-        neon.get_component(Transform).set({
-            position: neon_position,
-            scale: neon_scale,
-        });
-
-        let neon_light = new Entity({
-            components: [
-                new Transform({
-                    position: NEON_LIGHT_MOUNT
-                }),
-                new Light({
-                    color: neon_color,
-                    intensity: NEON_INTENSITY,
-                }),
-                // new Render({
-                //     color: "fff",
-                //     material: wireframe,
-                //     indices: cube_render.indices,
-                //     vertices: cube_render.vertices
-                //})
-            ]
-        });
-        neon.add(neon_light);
-        group.add(neon);
-
-        game.add(group);
+  map.map.forEach((row, y) => {
+    if (!row) {
+      return;
     }
+    row.forEach((height, x) => {
+      if (!height) {
+        return;
+      }
 
-    for (let building of map.buildings) {
-        let {x1, y1, x2, y2} = building;
-        let xsize = Math.abs(x2 - x1);
-        let zsize = Math.abs(y2 - y1);
+      let building = new Box();
 
-        let center_x = x1 + (xsize/2);
-        let center_z = y1 + (zsize/2);
+      building.get_component(Render).set({
+        material: building_material,
+        color: BUILDING_COLOR,
+      });
+      building.get_component(Transform).set({
+        scale: [1, height, 1],
+        position: [x, height / 2, y]
+      });
+      game.add(building);
+    });
+  });
 
-        let height = random_integer(
-          MIN_BUILDING_HEIGHT, MAX_BUILDING_HEIGHT
-        );
-
-        create_building({
-            position: [center_x, height / 2, center_z],
-            scale: [xsize, height, zsize],
-            neon_position: [0, 1, - (zsize/2) - 0.2],
-            neon_scale: [4, 2, 0.1],
-            neon_color: random_element_of(NEON_COLORS),
-        });
-    }
-
-    window.game = game;
-    return game;
+  window.game = game;
+  return game;
 }
